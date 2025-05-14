@@ -39,7 +39,7 @@ export default function ShippingPage() {
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
-            const token = localStorage.getItem('token');
+            const token = localStorage.getItem('access');
             if (!token) {
                 router.push('/login');
                 return;
@@ -52,13 +52,22 @@ export default function ShippingPage() {
                     'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({
-                    shipping_address: formData.location,
-                    items: cartItems
+                    customer_name: formData.name,
+                    location: formData.location,
+                    note: formData.note,
+                    total_price: totalPrice,
+                    items: cartItems.map(item => ({
+                        product_name: item.name,
+                        price: item.price,
+                        quantity: item.quantity,
+                        image_url: item.image
+                    }))
                 })
             });
 
             if (!response.ok) {
-                throw new Error('Failed to create order');
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to create order');
             }
 
             const data = await response.json();
