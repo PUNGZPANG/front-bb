@@ -59,15 +59,15 @@ export default function ShippingPage() {
             }
 
             const orderData = {
-                customer_name: formData.name.trim(),
-                location: formData.location.trim(),
-                note: formData.note ? formData.note.trim() : '',
+                customer_name: formData.name.trim().substring(0, 200),
+                location: formData.location.trim().substring(0, 500),
+                note: formData.note ? formData.note.trim().substring(0, 500) : '',
                 total_price: parseFloat(totalPrice),
                 items: cartItems.map(item => ({
-                    product_name: item.name ? item.name.trim() : '',
+                    product_name: item.name ? item.name.trim().substring(0, 200) : '',
                     price: parseFloat(item.price),
                     quantity: parseInt(item.quantity, 10),
-                    image_url: item.image || ''
+                    image_url: item.image ? item.image.substring(0, 500) : ''
                 }))
             };
 
