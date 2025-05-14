@@ -139,12 +139,13 @@ export default function ProductDetailPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
                     <div className="aspect-square bg-gray-100 rounded overflow-hidden">
-                        <img
+                        <Image
                             src={product.image}
                             alt={product.product_name}
                             width={800}
                             height={800}
                             className="object-cover w-full h-full"
+                            priority={true}
                         />
                     </div>
 
