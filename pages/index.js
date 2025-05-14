@@ -22,6 +22,7 @@ export default function HomePage() {
             width={75}
             height={75}
             alt="Mini Logo"
+            style={{ width: 'auto', height: '75px' }}
           />
         </div>
 
@@ -42,6 +43,8 @@ export default function HomePage() {
             width={700}
             height={700}
             className="w-[700px] max-w-[70%]"
+            priority={true}
+            style={{ width: 'auto', height: 'auto' }}
           />
 
           {/* ปุ่มสมัคร/เข้าสู่ระบบ */}

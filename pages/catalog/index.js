@@ -62,7 +62,14 @@ export default function CatalogPage() {
             <div className="min-h-screen bg-white font-[Lustria] text-center px-6 py-10">
                 <div className="flex justify-between items-center mb-8">
                     <div className="flex-1 flex justify-start">
-                        <Image src="/mini-logo.jpg" alt="Blue Born Logo" width={80} height={80} className="w-20" />
+                        <Image 
+                            src="/mini-logo.jpg" 
+                            alt="Blue Born Logo" 
+                            width={80} 
+                            height={80} 
+                            className="w-20"
+                            style={{ width: 'auto', height: 'auto' }}
+                        />
                     </div>
 
                     <div className="flex-1 flex justify-center">

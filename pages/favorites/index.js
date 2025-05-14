@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
+import config from '../../context/config';
 
 export default function FavoritesPage() {
     const [favorites, setFavorites] = useState([]);
@@ -18,7 +19,7 @@ export default function FavoritesPage() {
                     return;
                 }
 
-                const res = await fetch('http://localhost:8000/api/favorites/', {
+                const res = await fetch(`${config.apiUrl}/api/favorites/`, {
                     headers: {
                         Authorization: `Bearer ${token}`,
                     },
