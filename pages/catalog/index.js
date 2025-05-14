@@ -2,6 +2,8 @@ import Head from 'next/head';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
+import { FiShoppingCart } from 'react-icons/fi';
+import { AiOutlineHeart } from 'react-icons/ai';
 
 export default function CatalogPage() {
     const [search, setSearch] = useState('');
@@ -70,10 +72,20 @@ export default function CatalogPage() {
                         />
                     </div>
 
+
                     <div className="flex-1 flex justify-end gap-8">
-                        <Link href="/CartPage">
-                            <button className="text-xl hover:text-gray-500">CART</button>
-                        </Link>
+                        <a href="/cart">
+                            <button className="text-2xl hover:text-gray-500" title="Cart">
+                                <FiShoppingCart />
+                            </button>
+                        </a>
+
+                        {/* Favorite Icon */}
+                        <a href="/favorites">
+                            <button className="text-2xl hover:text-gray-500" title="My Favorites">
+                                <AiOutlineHeart />
+                            </button>
+                        </a>
                         {isLoggedIn ? (
                             <button
                                 onClick={handleLogout}
@@ -82,9 +94,9 @@ export default function CatalogPage() {
                                 LOGOUT
                             </button>
                         ) : (
-                            <Link href="/login">
+                            <a href="/login">
                                 <button className="text-xl hover:text-gray-500">LOGIN</button>
-                            </Link>
+                            </a>
                         )}
                     </div>
                 </div>

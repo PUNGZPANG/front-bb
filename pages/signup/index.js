@@ -54,6 +54,15 @@ export default function SignUpPage() {
         className="min-h-screen bg-cover bg-center flex items-center justify-center relative"
         style={{ backgroundImage: "url('/background.jpg')" }} // พื้นหลังทะเล
       >
+        {/* back to catalog */}
+        <div className="absolute top-4 left-4">
+          <button
+            onClick={() => router.push('/catalog')}
+            className="text-black px-4 py-2 rounded-full hover:bg-gray-100"
+          >
+            Back to Catalog
+          </button>
+        </div>
         {/* กล่องฟอร์มแบบใส + โลโก้แบบล้น */}
         <div className="relative bg-white/70 rounded-3xl px-10 pt-20 pb-10 w-full max-w-md text-center shadow-lg">
           {/* โลโก้ล้นออกด้านบน */}

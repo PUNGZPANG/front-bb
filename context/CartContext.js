@@ -1,41 +1,88 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 
-// สร้าง CartContext
 const CartContext = createContext();
 
-// CartProvider Component
 export const CartProvider = ({ children }) => {
     const [cart, setCart] = useState([]);
+    const [cartInitialized, setCartInitialized] = useState(false);
+    const [token, setToken] = useState(null);
 
-    // ใช้ useEffect ในการโหลดข้อมูลจาก localStorage เมื่อแอปเริ่มทำงาน
+    // Load token from localStorage and track changes
     useEffect(() => {
-        const storedCart = localStorage.getItem('cartItems');
-        if (storedCart) {
-            setCart(JSON.parse(storedCart));
-        }
+        const updateToken = () => {
+            const accessToken = localStorage.getItem("access");
+            setToken(accessToken);
+        };
+
+        updateToken();
+        window.addEventListener("storage", updateToken);
+
+        return () => {
+            window.removeEventListener("storage", updateToken);
+        };
     }, []);
 
-    // ใช้ useEffect ในการบันทึกข้อมูลใน localStorage ทุกครั้งที่ cart มีการเปลี่ยนแปลง
+    // Fetch cart from backend if token exists
     useEffect(() => {
-        if (cart.length > 0) {
-            localStorage.setItem('cartItems', JSON.stringify(cart)); // บันทึกข้อมูลใน localStorage
-            const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-            localStorage.setItem('totalPrice', total); // บันทึกราคาใน localStorage
-        }
-    }, [cart]);
-    const updateQuantity = (product_id, quantity) => {
-        setCart((prevCart) =>
-            prevCart.map((item) =>
-                item.product_id === product_id ? { ...item, quantity } : item
-            )
-        );
-    };
+        if (!token) return;
 
-    // ฟังก์ชันเพิ่มสินค้าในตะกร้า
-    const addToCart = (product) => {
+        const loadCart = async () => {
+            try {
+                const res = await fetch("http://localhost:8000/cart/", {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        "Content-Type": "application/json",
+                    },
+                });
+
+                if (!res.ok) {
+                    throw new Error("Failed to fetch cart from server");
+                }
+
+                const data = await res.json();
+
+                setCart(data.map(item => ({
+                    product_id: item.product.product_id,
+                    name: item.product.product_name,
+                    price: item.product.price,
+                    image: item.product.image,
+                    description: item.product.description,
+                    quantity: item.quantity
+                })));
+
+                setCartInitialized(true);
+            } catch (err) {
+                console.error("Error fetching cart:", err);
+            }
+        };
+
+        loadCart();
+    }, [token]);
+
+    // Load from localStorage if not logged in
+    useEffect(() => {
+        if (!token && !cartInitialized) {
+            const storedCart = localStorage.getItem('cartItems');
+            if (storedCart) {
+                setCart(JSON.parse(storedCart));
+                setCartInitialized(true);
+            }
+        }
+    }, [token, cartInitialized]);
+
+    // Save to localStorage when cart changes
+    useEffect(() => {
+        if (typeof window !== "undefined" && cartInitialized) {
+            localStorage.setItem('cartItems', JSON.stringify(cart));
+            const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+            localStorage.setItem('totalPrice', total);
+        }
+    }, [cart, cartInitialized]);
+
+    // Add item to cart
+    const addToCart = async (product) => {
         setCart((prevCart) => {
             const existingItem = prevCart.find(item => item.product_id === product.product_id);
-
             if (existingItem) {
                 return prevCart.map(item =>
                     item.product_id === product.product_id
@@ -46,14 +93,88 @@ export const CartProvider = ({ children }) => {
                 return [...prevCart, { ...product, quantity: 1 }];
             }
         });
+
+        if (token) {
+            try {
+                await fetch("http://localhost:8000/cart/", {
+                    method: "POST",
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        product_id: product.product_id,
+                        quantity: 1,
+                    }),
+                });
+            } catch (error) {
+                console.error("Failed to add to cart on server:", error);
+            }
+        }
     };
 
-    const removeFromCart = (product_id) => {
+    // Update item quantity (local only)
+    const updateQuantity = async (product_id, quantity) => {
+        setCart((prevCart) =>
+            prevCart.map((item) =>
+                item.product_id === product_id ? { ...item, quantity } : item
+            )
+        );
+
+        if (token) {
+            try {
+                await fetch("http://localhost:8000/cart/", {
+                    method: "PUT",
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ product_id, quantity }),
+                });
+            } catch (error) {
+                console.error("Failed to update quantity on server:", error);
+            }
+        }
+    };
+
+
+    // Remove item from cart
+    const removeFromCart = async (product_id) => {
         setCart((prevCart) => prevCart.filter(item => item.product_id !== product_id));
+
+        if (token) {
+            try {
+                await fetch("http://localhost:8000/cart/", {
+                    method: "DELETE",
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ product_id }),
+                });
+            } catch (error) {
+                console.error("Failed to remove from cart on server:", error);
+            }
+        }
     };
 
-    const clearCart = () => {
-        setCart([]);  // เคลียร์ตะกร้า
+    const clearCart = async () => {
+        setCart([]);
+
+        if (token) {
+            try {
+                await fetch("http://localhost:8000/cart/", {
+                    method: "DELETE",
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({}),
+                });
+            } catch (error) {
+                console.error("Failed to clear cart on server:", error);
+            }
+        }
     };
 
 
@@ -64,7 +185,6 @@ export const CartProvider = ({ children }) => {
     );
 };
 
-// Custom hook สำหรับการใช้งาน CartContext
 export const useCart = () => {
     const context = useContext(CartContext);
     if (!context) {
@@ -72,4 +192,3 @@ export const useCart = () => {
     }
     return context;
 };
-

@@ -5,21 +5,15 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useCart } from '@/context/CartContext';
 import { FiShoppingCart } from 'react-icons/fi';
-import { AiOutlineHeart, AiFillHeart } from 'react-icons/ai';
 
 export default function ProductDetailPage() {
     const router = useRouter();
     const { product_id } = router.query;
-    const { addToCart, cartItems } = useCart();
+    const { addToCart, cartItems } = useCart(); // 🛒 ดึง cartItems
     const [product, setProduct] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
     const [cartShake, setCartShake] = useState(false);
-    const [isFavorited, setIsFavorited] = useState(false);
-    const [selectedSize, setSelectedSize] = useState('');
-    const [selectedColor, setSelectedColor] = useState('');
-
-    const token = typeof window !== 'undefined' ? localStorage.getItem('access') : null;
 
     useEffect(() => {
         if (!product_id) return;
@@ -27,25 +21,11 @@ export default function ProductDetailPage() {
         const fetchData = async () => {
             try {
                 const response = await fetch(`http://localhost:8000/product/${product_id}`);
-                if (!response.ok) throw new Error(`Failed to fetch: ${response.status}`);
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch: ${response.status}`);
+                }
                 const data = await response.json();
                 setProduct(data);
-                setSelectedSize(data.size || '');
-                setSelectedColor(data.color || '');
-
-                // Check if favorited
-                const favRes = await fetch(`http://localhost:8000/api/favorites/`, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                const favData = await favRes.json();
-                console.log("favData:", favData); // Debugging
-
-                if (Array.isArray(favData)) {
-                    const isFav = favData.some((item) => item.product_id == product_id);
-                    setIsFavorited(isFav);
-                } else {
-                    console.warn("Unexpected favorites response:", favData);
-                }
             } catch (err) {
                 setError(err.message);
             } finally {
@@ -62,35 +42,7 @@ export default function ProductDetailPage() {
         setTimeout(() => setCartShake(false), 500);
     };
 
-    const toggleFavorite = async () => {
-        try {
-            const res = await fetch(`http://localhost:8000/api/favorite/${product_id}/toggle/`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`,
-                },
-            });
-
-            if (!res.ok) {
-                //alert(`Please log in to add to favorites`);
-                router.push('/login');
-            }
-
-            const contentType = res.headers.get('content-type');
-            if (!contentType || !contentType.includes('application/json')) {
-                throw new Error('Invalid response format: expected JSON');
-            }
-
-            const data = await res.json();
-            setIsFavorited(data.status === 'favorited');
-        } catch (err) {
-            console.error(err);
-            alert('Something went wrong: ' + err.message);
-        }
-    };
-
-
+    // รวมจำนวนสินค้าทั้งหมดในตะกร้า
     const totalItems = cartItems?.reduce((sum, item) => sum + item.quantity, 0) || 0;
 
     if (isLoading) return <p className="text-center mt-20">Loading...</p>;
@@ -114,6 +66,7 @@ export default function ProductDetailPage() {
 
                     <img src="/mini-logo.jpg" alt="Blue Born Logo" className="w-20" />
 
+                    {/* Cart Icon */}
                     <Link href="/cart" className={`relative text-2xl ${cartShake ? 'animate-shake' : ''}`}>
                         <FiShoppingCart />
                         {totalItems > 0 && (
@@ -124,6 +77,7 @@ export default function ProductDetailPage() {
                     </Link>
                 </div>
 
+                {/* Product Layout */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
                     <div className="aspect-square bg-gray-100 rounded overflow-hidden">
                         <img
@@ -137,37 +91,20 @@ export default function ProductDetailPage() {
 
                     <div className="flex flex-col justify-center">
                         <h1 className="text-3xl font-semibold mb-2">{product.product_name}</h1>
-                        <p className="text-gray-600 mb-4">{product.description?.slice(0, 80)}...</p>
+                        <p className="text-gray-600 mb-6">{product.description}</p>
 
-                        {/* Favorite Button */}
-                        <button
-                            onClick={toggleFavorite}
-                            className="flex items-center gap-1 text-red-500 text-lg mb-4 self-start"
-                        >
-                            {isFavorited ? <AiFillHeart /> : <AiOutlineHeart />}
-                            {isFavorited ? 'Favorited' : 'Add to Favorites'}
-                        </button>
-
-                        {/* Add to Cart */}
                         <button className="flex items-center justify-between bg-black text-white px-6 py-3 rounded-full shadow mb-6" onClick={handleAddToCart}>
                             <span className="text-lg" >Add to Cart</span>
                             <span className="text-lg">{product.price} ฿</span>
                         </button>
 
-                        {/* Select Options */}
-                        <div className="flex gap-8 text-gray-600 text-md mb-2 border-b pb-2">
-                            <span>Size / Color</span>
+                        <div className="flex gap-8 text-gray-600 text-sm mb-2 border-b pb-2">
+                            <span className="border-b-2 border-black text-black">Size</span>
+                            <span className="cursor-pointer hover:text-black">Color</span>
                         </div>
-
-                        <div className="flex gap-4 mb-4">
-                            <span className="text-sm text-gray-700 leading-relaxed">
-                                {product.size}
-                            </span>
-                            <span className="text-sm text-gray-700 leading-relaxed">
-                                {product.color}
-                            </span>
-                        </div>
-
+                        <p className="text-sm text-gray-700 leading-relaxed">
+                            {product.size}
+                        </p>
                     </div>
                 </div>
             </div>
@@ -178,6 +115,7 @@ export default function ProductDetailPage() {
                     20%, 60% { transform: translateX(-5px); }
                     40%, 80% { transform: translateX(5px); }
                 }
+
                 .animate-shake {
                     animation: shake 1s;
                 }
