@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
+import Image from 'next/image';
 import config from '../../context/config';
 
 export default function OrdersPage() {
@@ -65,7 +66,13 @@ export default function OrdersPage() {
                     >
                         BACK TO CATALOG
                     </button>
-                    <img src="/mini-logo.jpg" alt="Logo" className="w-20" />
+                    <Image 
+                        src="/mini-logo.jpg" 
+                        alt="Logo" 
+                        width={80}
+                        height={80}
+                        className="w-20" 
+                    />
                 </div>
 
                 <h1 className="text-3xl font-semibold mb-6">My Orders</h1>
@@ -80,7 +87,7 @@ export default function OrdersPage() {
                     <div className="text-center py-8">Loading orders...</div>
                 ) : orders.length === 0 ? (
                     <div className="text-center py-8">
-                        <p className="text-gray-600 mb-4">You haven't placed any orders yet.</p>
+                        <p className="text-gray-600 mb-4">You haven&apos;t placed any orders yet.</p>
                         <button
                             onClick={() => router.push('/catalog')}
                             className="bg-black text-white px-6 py-2 rounded-full hover:opacity-90"
@@ -121,10 +128,12 @@ export default function OrdersPage() {
                                             <div key={index} className="flex justify-between items-center">
                                                 <div className="flex items-center gap-4">
                                                     {item.image_url && (
-                                                        <img
+                                                        <Image
                                                             src={item.image_url}
                                                             alt={item.product_name}
-                                                            className="w-16 h-16 object-cover rounded"
+                                                            width={64}
+                                                            height={64}
+                                                            className="object-cover rounded"
                                                         />
                                                     )}
                                                     <div>
