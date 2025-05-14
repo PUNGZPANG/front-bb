@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import config from './config';
 
 const CartContext = createContext();
 
@@ -10,126 +11,137 @@ export const CartProvider = ({ children }) => {
     // Load token from localStorage and track changes
     useEffect(() => {
         const updateToken = () => {
-            const accessToken = localStorage.getItem("access");
+            const accessToken = localStorage.getItem('access');
             setToken(accessToken);
         };
 
         updateToken();
-        window.addEventListener("storage", updateToken);
+        window.addEventListener('storage', updateToken);
 
         return () => {
-            window.removeEventListener("storage", updateToken);
+            window.removeEventListener('storage', updateToken);
         };
     }, []);
 
     // Fetch cart from backend if token exists
     useEffect(() => {
-        if (!token) return;
+        if (!token) {
+            // If no token, try to load cart from localStorage
+            const storedCart = localStorage.getItem('cartItems');
+            if (storedCart) {
+                setCart(JSON.parse(storedCart));
+            }
+            setCartInitialized(true);
+            return;
+        }
 
         const loadCart = async () => {
             try {
-                const res = await fetch("http://localhost:8000/cart/", {
+                const res = await fetch(`${config.apiUrl}/cart/`, {
                     headers: {
-                        Authorization: `Bearer ${token}`,
-                        "Content-Type": "application/json",
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
                     },
                 });
 
                 if (!res.ok) {
+                    if (res.status === 401) {
+                        // Token might be expired, clear it
+                        localStorage.removeItem('access');
+                        localStorage.removeItem('refresh');
+                        setToken(null);
+                        // Load cart from localStorage instead
+                        const storedCart = localStorage.getItem('cartItems');
+                        if (storedCart) {
+                            setCart(JSON.parse(storedCart));
+                        }
+                    }
                     throw new Error("Failed to fetch cart from server");
                 }
 
                 const data = await res.json();
-
-                setCart(data.map(item => ({
+                const formattedCart = data.map(item => ({
                     product_id: item.product.product_id,
                     name: item.product.product_name,
                     price: item.product.price,
                     image: item.product.image,
                     description: item.product.description,
                     quantity: item.quantity
-                })));
+                }));
 
-                setCartInitialized(true);
+                setCart(formattedCart);
+                // Also update localStorage
+                localStorage.setItem('cartItems', JSON.stringify(formattedCart));
             } catch (err) {
                 console.error("Error fetching cart:", err);
+            } finally {
+                setCartInitialized(true);
             }
         };
 
         loadCart();
     }, [token]);
 
-    // Load from localStorage if not logged in
-    useEffect(() => {
-        if (!token && !cartInitialized) {
-            const storedCart = localStorage.getItem('cartItems');
-            if (storedCart) {
-                setCart(JSON.parse(storedCart));
-                setCartInitialized(true);
-            }
-        }
-    }, [token, cartInitialized]);
-
-    // Save to localStorage when cart changes
-    useEffect(() => {
-        if (typeof window !== "undefined" && cartInitialized) {
-            localStorage.setItem('cartItems', JSON.stringify(cart));
-            const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-            localStorage.setItem('totalPrice', total);
-        }
-    }, [cart, cartInitialized]);
-
     // Add item to cart
     const addToCart = async (product) => {
+        if (!product) return;
+
         setCart((prevCart) => {
             const existingItem = prevCart.find(item => item.product_id === product.product_id);
-            if (existingItem) {
-                return prevCart.map(item =>
+            const newCart = existingItem
+                ? prevCart.map(item =>
                     item.product_id === product.product_id
                         ? { ...item, quantity: item.quantity + 1 }
                         : item
-                );
-            } else {
-                return [...prevCart, { ...product, quantity: 1 }];
-            }
+                )
+                : [...prevCart, { ...product, quantity: 1 }];
+            
+            // Update localStorage
+            localStorage.setItem('cartItems', JSON.stringify(newCart));
+            return newCart;
         });
 
+        // If logged in, sync with backend
         if (token) {
             try {
-                await fetch("http://localhost:8000/cart/", {
-                    method: "POST",
+                await fetch(`${config.apiUrl}/cart/`, {
+                    method: 'POST',
                     headers: {
-                        Authorization: `Bearer ${token}`,
-                        "Content-Type": "application/json",
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
                     },
                     body: JSON.stringify({
                         product_id: product.product_id,
-                        quantity: 1,
-                    }),
+                        quantity: 1
+                    })
                 });
             } catch (error) {
-                console.error("Failed to add to cart on server:", error);
+                console.error("Failed to sync cart with server:", error);
             }
         }
     };
 
-    // Update item quantity (local only)
-    const updateQuantity = async (product_id, quantity) => {
-        setCart((prevCart) =>
-            prevCart.map((item) =>
-                item.product_id === product_id ? { ...item, quantity } : item
-            )
-        );
+    // Update quantity
+    const updateQuantity = async (productId, quantity) => {
+        if (quantity < 1) return;
+
+        setCart((prevCart) => {
+            const newCart = prevCart.map((item) =>
+                item.product_id === productId ? { ...item, quantity } : item
+            );
+            localStorage.setItem('cartItems', JSON.stringify(newCart));
+            return newCart;
+        });
 
         if (token) {
             try {
-                await fetch("http://localhost:8000/cart/", {
-                    method: "PUT",
+                await fetch(`${config.apiUrl}/cart/`, {
+                    method: 'PUT',
                     headers: {
-                        Authorization: `Bearer ${token}`,
-                        "Content-Type": "application/json",
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
                     },
-                    body: JSON.stringify({ product_id, quantity }),
+                    body: JSON.stringify({ product_id: productId, quantity })
                 });
             } catch (error) {
                 console.error("Failed to update quantity on server:", error);
@@ -137,20 +149,23 @@ export const CartProvider = ({ children }) => {
         }
     };
 
-
-    // Remove item from cart
-    const removeFromCart = async (product_id) => {
-        setCart((prevCart) => prevCart.filter(item => item.product_id !== product_id));
+    // Remove from cart
+    const removeFromCart = async (productId) => {
+        setCart((prevCart) => {
+            const newCart = prevCart.filter(item => item.product_id !== productId);
+            localStorage.setItem('cartItems', JSON.stringify(newCart));
+            return newCart;
+        });
 
         if (token) {
             try {
-                await fetch("http://localhost:8000/cart/", {
-                    method: "DELETE",
+                await fetch(`${config.apiUrl}/cart/`, {
+                    method: 'DELETE',
                     headers: {
-                        Authorization: `Bearer ${token}`,
-                        "Content-Type": "application/json",
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
                     },
-                    body: JSON.stringify({ product_id }),
+                    body: JSON.stringify({ product_id: productId })
                 });
             } catch (error) {
                 console.error("Failed to remove from cart on server:", error);
@@ -158,18 +173,19 @@ export const CartProvider = ({ children }) => {
         }
     };
 
+    // Clear cart
     const clearCart = async () => {
         setCart([]);
+        localStorage.removeItem('cartItems');
 
         if (token) {
             try {
-                await fetch("http://localhost:8000/cart/", {
-                    method: "DELETE",
+                await fetch(`${config.apiUrl}/cart/`, {
+                    method: 'DELETE',
                     headers: {
-                        Authorization: `Bearer ${token}`,
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({}),
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
                 });
             } catch (error) {
                 console.error("Failed to clear cart on server:", error);
@@ -177,9 +193,15 @@ export const CartProvider = ({ children }) => {
         }
     };
 
-
     return (
-        <CartContext.Provider value={{ cart, addToCart, removeFromCart, clearCart, updateQuantity }}>
+        <CartContext.Provider value={{
+            cart,
+            addToCart,
+            removeFromCart,
+            clearCart,
+            updateQuantity,
+            isInitialized: cartInitialized
+        }}>
             {children}
         </CartContext.Provider>
     );

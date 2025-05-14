@@ -3,6 +3,7 @@ import Image from 'next/image';
 import axios from 'axios';
 import { useState } from 'react';
 import { useRouter } from 'next/router';
+import config from '../../context/config';
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -26,7 +27,7 @@ export default function SignUpPage() {
     }
 
     try {
-      const response = await axios.post('http://localhost:8000/register/', {
+      const response = await axios.post(`${config.apiUrl}/register/`, {
         username,
         full_name: fullName,
         email,

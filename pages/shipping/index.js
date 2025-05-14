@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
+import config from '../../context/config';
 
 export default function ShippingPage() {
     const router = useRouter();
@@ -14,6 +15,7 @@ export default function ShippingPage() {
 
     const [cartItems, setCartItems] = useState([]);
     const [totalPrice, setTotalPrice] = useState(0);
+    const [error, setError] = useState('');
 
     // ✅ โหลดข้อมูลจาก localStorage หลังจาก component mount
     useEffect(() => {
@@ -34,104 +36,40 @@ export default function ShippingPage() {
         });
     };
 
-    // const handleSubmit = async (e) => {
-    //     e.preventDefault();
-
-    //     if (!formData.termsAccepted) {
-    //         alert('Please accept the terms before continuing.');
-    //         return;
-    //     }
-
-    //     try {
-    //         const response = await fetch('http://localhost:8000/api/orders/create/', {
-    //             method: 'POST',
-    //             headers: { 'Content-Type': 'application/json' },
-    //             body: JSON.stringify({
-    //                 customer_name: formData.name,
-    //                 location: formData.location,
-    //                 note: formData.note,
-    //                 total_price: totalPrice,
-    //                 items: cartItems.map(item => ({
-    //                     product_name: item.name,
-    //                     price: item.price,
-    //                     quantity: item.quantity,
-    //                     image_url: item.image,
-    //                 })),
-    //             }),
-    //         });
-
-    //         if (response.ok) {
-    //             router.push('/confirmation');
-    //         } else {
-    //             const data = await response.json();
-    //             console.error('Error:', data);
-    //             alert('There was an error placing your order.');
-    //         }
-    //     } catch (error) {
-    //         console.error('Error:', error);
-    //         alert('An error occurred while placing your order.');
-    //     }
-    // };
-
     const handleSubmit = async (e) => {
         e.preventDefault();
-
-        if (!formData.termsAccepted) {
-            alert('Please accept the terms before continuing.');
-            return;
-        }
-
-        const orderItems = cartItems.map(item => ({
-            product_name: item.name || item.product_name || "Unnamed Product",  // fallback to avoid nulls
-            price: parseFloat(item.price || 0),
-            quantity: parseInt(item.quantity || 1),
-            image_url: item.image || item.image_url || '',
-        }));
-
-        // Extra safeguard to ensure no item is missing required fields
-        const hasInvalidItems = orderItems.some(item =>
-            !item.product_name || !item.price || !item.quantity
-        );
-
-        if (hasInvalidItems) {
-            alert("Some cart items are missing necessary info.");
-            console.error("Invalid items:", orderItems);
-            return;
-        }
-
         try {
-            const response = await fetch('http://localhost:8000/api/orders/create/', {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                router.push('/login');
+                return;
+            }
+
+            const response = await fetch(`${config.apiUrl}/api/orders/create/`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
                 body: JSON.stringify({
-                    customer_name: formData.name,
-                    location: formData.location,
-                    note: formData.note,
-                    total_price: parseFloat(totalPrice),
-                    items: orderItems,
-                }),
+                    shipping_address: formData.location,
+                    items: cartItems
+                })
             });
 
-            if (response.ok) {
-                localStorage.setItem('lastOrder', JSON.stringify({
-                    customer_name: formData.name,
-                    location: formData.location,
-                    note: formData.note,
-                    total_price: parseFloat(totalPrice),
-                    items: orderItems,
-                }));
-                router.push('/order');
-            } else {
-                const data = await response.json();
-                console.error('Server Error:', data);
-                alert('There was an error placing your order.');
+            if (!response.ok) {
+                throw new Error('Failed to create order');
             }
+
+            const data = await response.json();
+            localStorage.removeItem('cartItems');
+            localStorage.removeItem('totalPrice');
+            router.push('/order-confirmation');
         } catch (error) {
             console.error('Fetch Error:', error);
-            alert('An error occurred while placing your order.');
+            setError('Failed to create order. Please try again.');
         }
     };
-
 
     return (
         <>

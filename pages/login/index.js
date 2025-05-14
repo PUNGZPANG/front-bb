@@ -3,6 +3,8 @@ import Image from "next/image";
 import axios from 'axios';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
+import config from '../../context/config';
+import Link from 'next/link';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -26,7 +28,7 @@ export default function LoginPage() {
     setError("");
 
     try {
-      const response = await axios.post('http://localhost:8000/login/', {
+      const response = await axios.post(`${config.apiUrl}/login/`, {
         username: username,
         password: password,
       });
@@ -49,18 +51,12 @@ export default function LoginPage() {
 
   // ใช้ axios ในการดึงข้อมูลโปรไฟล์
   function fetchProfile() {
-    const accessToken = localStorage.getItem('access'); // ใช้ชื่อ 'access' แทน 'access_token'
+    const token = localStorage.getItem('token');
+    if (!token) return;
 
-    if (!accessToken) {
-      // ถ้าไม่มี access token ไปที่หน้า login
-      window.location.href = '/login';
-      return;
-    }
-
-    // ส่งคำขอ GET ไปที่ Backend พร้อมกับ Authorization header
-    axios.get('http://localhost:8000/profile/', {
+    axios.get(`${config.apiUrl}/profile/`, {
       headers: {
-        'Authorization': `Bearer ${accessToken}`
+        'Authorization': `Bearer ${token}`
       }
     })
       .then(response => {
@@ -171,13 +167,13 @@ export default function LoginPage() {
           </button>
           {/* ลิงค์ไปยังหน้า Register */}
           <p className="mt-4 text-sm text-gray-600">
-            Don't have an account?{" "}
-            <a
+            Don&apos;t have an account?{" "}
+            <Link
               href="/signup"
               className="text-blue-900 font-semibold hover:underline"
             >
               Register here
-            </a>
+            </Link>
           </p>
         </div>
       </div>

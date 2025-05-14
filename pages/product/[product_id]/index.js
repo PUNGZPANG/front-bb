@@ -6,47 +6,61 @@ import { useRouter } from 'next/router';
 import { useCart } from '@/context/CartContext';
 import { FiShoppingCart } from 'react-icons/fi';
 import { AiOutlineHeart, AiFillHeart } from 'react-icons/ai';
+import config from '../../../context/config';
 
 export default function ProductDetailPage() {
     const router = useRouter();
     const { product_id } = router.query;
-    const { addToCart, cartItems } = useCart();
+    const { addToCart, cart } = useCart();
     const [product, setProduct] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
     const [cartShake, setCartShake] = useState(false);
     const [isFavorited, setIsFavorited] = useState(false);
-    const [selectedSize, setSelectedSize] = useState('');
-    const [selectedColor, setSelectedColor] = useState('');
+    const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-    const token = typeof window !== 'undefined' ? localStorage.getItem('access') : null;
+    const totalItems = cart?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+
+    useEffect(() => {
+        const token = localStorage.getItem('access');
+        setIsAuthenticated(!!token);
+        setIsCheckingAuth(false);
+    }, []);
 
     useEffect(() => {
         if (!product_id) return;
 
         const fetchData = async () => {
             try {
-                const response = await fetch(`http://localhost:8000/product/${product_id}`);
+                setError(null);
+                const response = await fetch(`${config.apiUrl}/product/${product_id}`);
                 if (!response.ok) throw new Error(`Failed to fetch: ${response.status}`);
                 const data = await response.json();
                 setProduct(data);
-                setSelectedSize(data.size || '');
-                setSelectedColor(data.color || '');
 
-                // Check if favorited
-                const favRes = await fetch(`http://localhost:8000/api/favorites/`, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                const favData = await favRes.json();
-                console.log("favData:", favData); // Debugging
-
-                if (Array.isArray(favData)) {
-                    const isFav = favData.some((item) => item.product_id == product_id);
-                    setIsFavorited(isFav);
-                } else {
-                    console.warn("Unexpected favorites response:", favData);
+                // Check if favorited only if authenticated
+                if (isAuthenticated) {
+                    const token = localStorage.getItem('access');
+                    const favRes = await fetch(`${config.apiUrl}/api/favorites/`, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+                    
+                    if (favRes.ok) {
+                        const favData = await favRes.json();
+                        const isFav = Array.isArray(favData) && favData.some(item => item.product_id === parseInt(product_id));
+                        setIsFavorited(isFav);
+                    } else if (favRes.status === 401) {
+                        // Token expired
+                        localStorage.removeItem('access');
+                        localStorage.removeItem('refresh');
+                        setIsAuthenticated(false);
+                    }
                 }
             } catch (err) {
+                console.error('Error:', err);
                 setError(err.message);
             } finally {
                 setIsLoading(false);
@@ -54,48 +68,47 @@ export default function ProductDetailPage() {
         };
 
         fetchData();
-    }, [product_id]);
+    }, [product_id, isAuthenticated]);
 
     const handleAddToCart = () => {
+        if (!product) return;
         addToCart(product);
         setCartShake(true);
         setTimeout(() => setCartShake(false), 500);
     };
 
     const toggleFavorite = async () => {
+        if (!isAuthenticated) {
+            router.push('/login');
+            return;
+        }
+
         try {
-            const res = await fetch(`http://localhost:8000/api/favorite/${product_id}/toggle/`, {
+            const token = localStorage.getItem('access');
+            const res = await fetch(`${config.apiUrl}/api/favorite/${product_id}/toggle/`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`,
-                },
+                    'Authorization': `Bearer ${token}`
+                }
             });
 
-            if (!res.ok) {
-                //alert(`Please log in to add to favorites`);
+            if (res.ok) {
+                setIsFavorited(!isFavorited);
+            } else if (res.status === 401) {
+                // Token expired
+                localStorage.removeItem('access');
+                localStorage.removeItem('refresh');
+                setIsAuthenticated(false);
                 router.push('/login');
             }
-
-            const contentType = res.headers.get('content-type');
-            if (!contentType || !contentType.includes('application/json')) {
-                throw new Error('Invalid response format: expected JSON');
-            }
-
-            const data = await res.json();
-            setIsFavorited(data.status === 'favorited');
-        } catch (err) {
-            console.error(err);
-            alert('Something went wrong: ' + err.message);
+        } catch (error) {
+            console.error('Error:', error);
         }
     };
 
-
-    const totalItems = cartItems?.reduce((sum, item) => sum + item.quantity, 0) || 0;
-
-    if (isLoading) return <p className="text-center mt-20">Loading...</p>;
-    if (error) return <p className="text-center mt-20 text-red-500">Error: {error}</p>;
-    if (!product) return <p className="text-center mt-20">Product not found</p>;
+    if (isLoading || isCheckingAuth) return <div className="flex items-center justify-center min-h-screen"><p>Loading...</p></div>;
+    if (error) return <div className="flex items-center justify-center min-h-screen"><p className="text-red-500">Error: {error}</p></div>;
+    if (!product) return <div className="flex items-center justify-center min-h-screen"><p>Product not found</p></div>;
 
     return (
         <>
