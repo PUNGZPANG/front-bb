@@ -98,7 +98,7 @@ export default function OrdersPage() {
                                         <p className="text-gray-600">{formatDate(order.created_at)}</p>
                                     </div>
                                     <span className="text-lg font-semibold">
-                                        ${order.total_price.toFixed(2)}
+                                        ${parseFloat(order.total_price || 0).toFixed(2)}
                                     </span>
                                 </div>
                                 
