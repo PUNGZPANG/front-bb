@@ -1,4 +1,12 @@
 {
   "presets": ["next/babel"],
-  "plugins": []
+  "plugins": [],
+  "env": {
+    "development": {
+      "presets": ["next/babel"]
+    },
+    "production": {
+      "presets": ["next/babel"]
+    }
+  }
 } 

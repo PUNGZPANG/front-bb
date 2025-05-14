@@ -5,7 +5,6 @@ import config from '../../context/config';
 
 export default function ShippingPage() {
     const router = useRouter();
-
     const [formData, setFormData] = useState({
         name: '',
         location: '',
@@ -16,34 +15,63 @@ export default function ShippingPage() {
     const [cartItems, setCartItems] = useState([]);
     const [totalPrice, setTotalPrice] = useState(0);
     const [error, setError] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // ✅ โหลดข้อมูลจาก localStorage หลังจาก component mount
     useEffect(() => {
         if (typeof window !== 'undefined') {
-            const items = JSON.parse(localStorage.getItem('cartItems') || '[]');
-            const total = localStorage.getItem('totalPrice') || 0;
-
-            setCartItems(items);
-            setTotalPrice(total);
+            try {
+                const items = JSON.parse(localStorage.getItem('cartItems') || '[]');
+                const total = parseFloat(localStorage.getItem('totalPrice')) || 0;
+                setCartItems(items);
+                setTotalPrice(total);
+            } catch (err) {
+                console.error('Error loading cart data:', err);
+                setError('Error loading cart data. Please try again.');
+            }
         }
     }, []);
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
-        setFormData({
-            ...formData,
+        setFormData(prev => ({
+            ...prev,
             [name]: type === 'checkbox' ? checked : value,
-        });
+        }));
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (isSubmitting) return;
+        
         try {
+            setIsSubmitting(true);
+            setError('');
+
             const token = localStorage.getItem('access');
             if (!token) {
                 router.push('/login');
                 return;
             }
+
+            if (!formData.termsAccepted) {
+                setError('Please accept the terms and conditions');
+                return;
+            }
+
+            const orderData = {
+                customer_name: formData.name.trim(),
+                location: formData.location.trim(),
+                note: formData.note ? formData.note.trim() : '',
+                total_price: parseFloat(totalPrice),
+                items: cartItems.map(item => ({
+                    product_name: item.name ? item.name.trim() : '',
+                    price: parseFloat(item.price),
+                    quantity: parseInt(item.quantity, 10),
+                    image_url: item.image || ''
+                }))
+            };
+
+            console.log('Submitting order with data:', orderData);
 
             const response = await fetch(`${config.apiUrl}/api/orders/create/`, {
                 method: 'POST',
@@ -51,32 +79,26 @@ export default function ShippingPage() {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({
-                    customer_name: formData.name,
-                    location: formData.location,
-                    note: formData.note,
-                    total_price: totalPrice,
-                    items: cartItems.map(item => ({
-                        product_name: item.name,
-                        price: item.price,
-                        quantity: item.quantity,
-                        image_url: item.image
-                    }))
-                })
+                body: JSON.stringify(orderData)
             });
 
+            const responseData = await response.json();
+            console.log('Response status:', response.status);
+            console.log('Response data:', responseData);
+
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Failed to create order');
+                throw new Error(responseData.error || 'Failed to create order');
             }
 
-            const data = await response.json();
+            // Clear cart and redirect only if order was successful
             localStorage.removeItem('cartItems');
             localStorage.removeItem('totalPrice');
             router.push('/order-confirmation');
         } catch (error) {
-            console.error('Fetch Error:', error);
-            setError('Failed to create order. Please try again.');
+            console.error('Full error details:', error);
+            setError(error.message || 'Failed to create order. Please try again.');
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -99,6 +121,12 @@ export default function ShippingPage() {
 
                 <h2 className="text-2xl font-semibold mb-6">Shipping Information</h2>
 
+                {error && (
+                    <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                        {error}
+                    </div>
+                )}
+
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <input
                         type="text"
@@ -108,6 +136,7 @@ export default function ShippingPage() {
                         value={formData.name}
                         onChange={handleChange}
                         required
+                        maxLength="200"
                     />
                     <input
                         type="text"
@@ -117,6 +146,7 @@ export default function ShippingPage() {
                         value={formData.location}
                         onChange={handleChange}
                         required
+                        maxLength="500"
                     />
                     <textarea
                         name="note"
@@ -124,6 +154,7 @@ export default function ShippingPage() {
                         className="w-full border px-4 py-2 rounded resize-y min-h-[80px]"
                         value={formData.note}
                         onChange={handleChange}
+                        maxLength="500"
                     />
                     <div className="flex items-start gap-2">
                         <input
@@ -132,6 +163,7 @@ export default function ShippingPage() {
                             checked={formData.termsAccepted}
                             onChange={handleChange}
                             className="mt-1"
+                            required
                         />
                         <label className="text-sm">
                             I accept the terms and conditions
@@ -139,9 +171,12 @@ export default function ShippingPage() {
                     </div>
                     <button
                         type="submit"
-                        className="w-full bg-black text-white py-3 rounded-full mt-4 hover:opacity-90"
+                        disabled={isSubmitting}
+                        className={`w-full bg-black text-white py-3 rounded-full mt-4 hover:opacity-90 ${
+                            isSubmitting ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
                     >
-                        Save shipping information
+                        {isSubmitting ? 'Processing...' : 'Save shipping information'}
                     </button>
                 </form>
             </div>
