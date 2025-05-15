@@ -1,12 +1,4 @@
 {
   "presets": ["next/babel"],
-  "plugins": [],
-  "env": {
-    "development": {
-      "presets": ["next/babel"]
-    },
-    "production": {
-      "presets": ["next/babel"]
-    }
-  }
+  "plugins": ["@babel/plugin-transform-runtime"]
 } 

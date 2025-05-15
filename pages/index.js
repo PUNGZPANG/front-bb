@@ -32,7 +32,8 @@ export default function HomePage() {
           <Link href='catalog' className="hover:underline">VIEW CATALOGUE</Link> /
           <Link href='about' className="hover:underline">ABOUT US</Link>/ <br></br>
           <Link href='ring-size' className="hover:underline">RING SIZE</Link> /
-          <Link href='how-to-measure' className="hover:underline"> HOW TO MEASURE</Link>
+          <Link href='how-to-measure' className="hover:underline"> HOW TO MEASURE</Link> /
+          <Link href='stats' className="hover:underline"> STATISTICS</Link>
         </div>
 
         {/* โลโก้ตรงกลาง */}
